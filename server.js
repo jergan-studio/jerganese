@@ -1,12 +1,17 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 let players = {};
 
@@ -30,24 +35,24 @@ io.on("connection", (socket) => {
   });
 
   socket.on("move", (data) => {
-    if (players[socket.id]) {
-      players[socket.id].x = data.x;
-      players[socket.id].y = data.y;
+    if (!players[socket.id]) return;
 
-      io.emit("playerMoved", {
-        id: socket.id,
-        player: players[socket.id]
-      });
-    }
+    players[socket.id].x = data.x;
+    players[socket.id].y = data.y;
+
+    io.emit("playerMoved", {
+      id: socket.id,
+      player: players[socket.id]
+    });
   });
 
   socket.on("chat", (msg) => {
-    if (players[socket.id]) {
-      io.emit("chat", {
-        name: players[socket.id].name,
-        message: msg
-      });
-    }
+    if (!players[socket.id]) return;
+
+    io.emit("chat", {
+      name: players[socket.id].name,
+      message: msg
+    });
   });
 
   socket.on("disconnect", () => {
@@ -55,6 +60,7 @@ io.on("connection", (socket) => {
     io.emit("playerDisconnected", socket.id);
     io.emit("playerCount", Object.keys(players).length);
   });
+
 });
 
 const PORT = process.env.PORT || 3000;
