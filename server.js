@@ -18,7 +18,6 @@ let players = {};
 io.on("connection", (socket) => {
 
   socket.on("setName", (name) => {
-
     players[socket.id] = {
       x: 300,
       y: 300,
@@ -51,4 +50,24 @@ io.on("connection", (socket) => {
   socket.on("chat", (msg) => {
     if (!players[socket.id]) return;
 
-    players[so]()
+    players[socket.id].bubble = msg;
+    players[socket.id].bubbleTimer = 180;
+
+    io.emit("chat", {
+      name: players[socket.id].name,
+      message: msg
+    });
+  });
+
+  socket.on("disconnect", () => {
+    delete players[socket.id];
+    io.emit("playerDisconnected", socket.id);
+    io.emit("playerCount", Object.keys(players).length);
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
+  console.log("Server running on port", PORT);
+});
