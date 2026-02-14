@@ -7,6 +7,7 @@ canvas.height = window.innerHeight;
 
 let players = {};
 let myId = null;
+let joined = false;
 
 const idle = new Image();
 idle.src = "https://raw.githubusercontent.com/jergan-studio/jerganese/refs/heads/main/A.ico";
@@ -20,6 +21,15 @@ walk2.src = "https://raw.githubusercontent.com/jergan-studio/jerganese/refs/head
 let keys = {};
 let animFrame = 0;
 let walking = false;
+
+function joinGame() {
+  const name = document.getElementById("nameInput").value.trim();
+  if (name.length < 2) return alert("Name too short");
+
+  socket.emit("setName", name);
+  document.getElementById("namePrompt").style.display = "none";
+  joined = true;
+}
 
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
@@ -41,21 +51,26 @@ socket.on("playerDisconnected", (id) => {
   delete players[id];
 });
 
+socket.on("playerCount", (count) => {
+  document.getElementById("playerCount").textContent =
+    "Players Online: " + count;
+});
+
 socket.on("chat", (data) => {
   const msg = document.createElement("div");
-  msg.textContent = `${data.id.substring(0,4)}: ${data.message}`;
+  msg.textContent = `${data.name}: ${data.message}`;
   document.getElementById("messages").appendChild(msg);
 });
 
 document.getElementById("chatInput").addEventListener("keydown", e => {
-  if (e.key === "Enter") {
+  if (e.key === "Enter" && joined) {
     socket.emit("chat", e.target.value);
     e.target.value = "";
   }
 });
 
 function update() {
-  if (!players[myId]) return;
+  if (!joined || !players[myId]) return;
 
   let player = players[myId];
   walking = false;
@@ -67,11 +82,8 @@ function update() {
 
   socket.emit("move", player);
 
-  if (walking) {
-    animFrame += 0.2;
-  } else {
-    animFrame = 0;
-  }
+  if (walking) animFrame += 0.2;
+  else animFrame = 0;
 }
 
 function draw() {
@@ -86,6 +98,12 @@ function draw() {
     }
 
     ctx.drawImage(sprite, p.x, p.y, 48, 48);
+
+    // Draw name above head
+    ctx.fillStyle = "white";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(p.name, p.x + 24, p.y - 5);
   }
 }
 
