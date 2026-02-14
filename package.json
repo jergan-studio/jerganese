@@ -1,7 +1,7 @@
 {
   "name": "jerganese",
   "version": "1.0.0",
-  "description": "Jerganese hangout game",
+  "description": "Jerganese multiplayer hangout",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
