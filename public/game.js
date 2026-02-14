@@ -99,7 +99,6 @@ function draw() {
 
     ctx.drawImage(sprite, p.x, p.y, 48, 48);
 
-    // Draw name above head
     ctx.fillStyle = "white";
     ctx.font = "14px Arial";
     ctx.textAlign = "center";
