@@ -303,3 +303,17 @@ function startWeather(type, duration = 600) {
   weather.type = type;
   weather.timer = duration;
 }
+// Random weather scheduler
+function scheduleWeather() {
+  const types = ["rain", "storm", "snow"];
+  const type = types[Math.floor(Math.random() * types.length)];
+  const duration = 600 + Math.floor(Math.random() * 600); // 10–20 seconds
+  startWeather(type, duration);
+
+  // Schedule next weather in 20–30 seconds
+  const next = 1200 + Math.floor(Math.random() * 600); // frames ~20–30s
+  setTimeout(scheduleWeather, next * (1000 / 60)); // convert frames to ms
+}
+
+// Start the scheduler after 5 seconds
+setTimeout(scheduleWeather, 5000);
