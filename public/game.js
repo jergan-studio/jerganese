@@ -5,6 +5,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 let players = {};
+let boomboxes = {};
 let myId = null;
 let joined = false;
 
@@ -50,6 +51,7 @@ function joinGame() {
   socket.emit("setName", name);
   document.getElementById("namePrompt").style.display = "none";
   joined = true;
+  socket.emit("requestBoomboxes"); // request existing boomboxes
 }
 
 // Keyboard controls
@@ -80,10 +82,9 @@ socket.on("chat", data=>{
   msg.textContent=`${data.name}: ${data.message}`;
   document.getElementById("messages").appendChild(msg);
   const messagesDiv=document.getElementById("messages");
-  messagesDiv.scrollTop=messagesDiv.scrollHeight;
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 });
 
-// Chat input
 document.getElementById("chatInput").addEventListener("keydown", e=>{
   if(e.key==="Enter" && joined){
     let text=e.target.value;
@@ -120,10 +121,27 @@ function startWeather(type,duration=600){
   weather.timer=duration;
 }
 
+// Boombox functions
+function placeBoombox(videoURL, emote){
+  if(!players[myId]) return;
+  const player = players[myId];
+  socket.emit("placeBoombox", { x: player.x, y: player.y, videoURL, emote });
+}
+
+function boomboxEmote(id, emote){
+  socket.emit("boomboxEmote", { id, emote });
+}
+
+// Handle boombox socket events
+socket.on("currentBoomboxes", data => boomboxes=data);
+socket.on("newBoombox", data => boomboxes[data.id]=data.boombox);
+socket.on("updateBoombox", data => boomboxes[data.id]=data.boombox);
+socket.on("removeBoombox", id=>delete boomboxes[id]);
+
 // Update loop
 function update(){
   if(!joined||!players[myId]) return;
-  let player=players[myId];
+  let player = players[myId];
   walking=false;
   const speed=4;
 
@@ -158,7 +176,7 @@ function update(){
   if(weather.timer>0){ weather.timer--; if(weather.timer<=0) weather.type=null; }
   updateWeatherScheduler();
 
-  // Update HUD
+  // Weather HUD
   const hud=document.getElementById("weatherHUD");
   if(weather.type==="rain") hud.textContent="Weather: 🌧️ Rain";
   else if(weather.type==="storm") hud.textContent="Weather: ⛈️ Storm";
@@ -166,17 +184,17 @@ function update(){
   else hud.textContent="Weather: ☀️ Clear";
 }
 
-// Draw players
+// Draw functions
 function drawPlayers(){
   for(let id in players){
-    let p=players[id];
-    let sprite=idle;
-    if(id===myId&&walking) sprite=Math.floor(animFrame)%2===0?walk1:walk2;
-    ctx.drawImage(sprite,Math.round(p.x),Math.round(p.y),48,48);
+    let p = players[id];
+    let sprite = idle;
+    if(id===myId && walking) sprite = Math.floor(animFrame)%2===0 ? walk1 : walk2;
+    ctx.drawImage(sprite, Math.round(p.x), Math.round(p.y), 48, 48);
     ctx.fillStyle="black";
     ctx.textAlign="center";
-    ctx.fillText(p.name,p.x+24,p.y-5);
-    if(p.bubble&&p.bubbleTimer>0) drawBubble(p.bubble,p.x+24,p.y);
+    ctx.fillText(p.name, p.x+24, p.y-5);
+    if(p.bubble && p.bubbleTimer>0) drawBubble(p.bubble, p.x+24, p.y);
   }
 }
 
@@ -189,6 +207,29 @@ function drawBubble(text,x,y){
   ctx.fillStyle="black";
   ctx.textAlign="center";
   ctx.fillText(text,x,y-22);
+}
+
+// Draw boomboxes
+function drawBoomboxes(){
+  for(let id in boomboxes){
+    const b = boomboxes[id];
+    ctx.fillStyle="#555";
+    ctx.fillRect(b.x, b.y, 40, 40);
+    if(b.videoURL){
+      ctx.fillStyle="white";
+      ctx.beginPath();
+      ctx.moveTo(b.x+12,b.y+10);
+      ctx.lineTo(b.x+12,b.y+30);
+      ctx.lineTo(b.x+28,b.y+20);
+      ctx.fill();
+    }
+    if(b.emote){
+      ctx.font="20px Arial";
+      ctx.textAlign="center";
+      ctx.fillStyle="yellow";
+      ctx.fillText(b.emote, b.x+20, b.y-10);
+    }
+  }
 }
 
 // Draw world
@@ -212,7 +253,7 @@ function drawWorld(){
   drawTree(400,1400);
 }
 
-// Draw weather
+// Weather
 function drawWeather(){
   if(!weather.type) return;
   ctx.fillStyle="rgba(0,0,0,0.2)";
@@ -243,6 +284,7 @@ function draw(){
   ctx.translate(-camera.x-cameraShake.x,-camera.y-cameraShake.y);
   drawWorld();
   drawPlayers();
+  drawBoomboxes();
   ctx.restore();
   drawWeather();
 }
@@ -255,3 +297,12 @@ function gameLoop(){
 }
 
 gameLoop();
+
+// Place boombox with "b" key
+document.addEventListener("keydown", e=>{
+  if(e.key==="b" && joined){
+    const videoURL = prompt("Enter video URL (optional):");
+    const emote = prompt("Enter emote (optional):");
+    placeBoombox(videoURL, emote);
+  }
+});
