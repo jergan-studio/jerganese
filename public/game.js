@@ -37,7 +37,11 @@ let touchMove = { x: 0, y: 0 };
 const emotes = { wave: "👋", dance: "💃", sit: "🪑" };
 
 // Weather
-let weather = { heavy: false, timer: 0 };
+let weather = { type: null, timer: 0 };
+
+// Music
+const music = document.getElementById("bgMusic");
+music.volume = 0.5; // 50%
 
 // Join Game
 function joinGame() {
@@ -129,9 +133,9 @@ function updateCamera(player) {
   camera.x += ((player.x - canvas.width / 2) - camera.x) * 0.1;
   camera.y += ((player.y - canvas.height / 2) - camera.y) * 0.1;
 
-  if (weather.heavy) {
-    cameraShake.x = Math.random() * 4 - 2;
-    cameraShake.y = Math.random() * 4 - 2;
+  if (weather.type === "storm") {
+    cameraShake.x = Math.random() * 6 - 3;
+    cameraShake.y = Math.random() * 6 - 3;
   } else {
     cameraShake.x = 0;
     cameraShake.y = 0;
@@ -174,9 +178,9 @@ function update() {
   for (let id in players) if (players[id].bubbleTimer > 0) players[id].bubbleTimer--;
 
   // Weather timer
-  if (weather.heavy) {
+  if (weather.timer > 0) {
     weather.timer--;
-    if (weather.timer <= 0) weather.heavy = false;
+    if (weather.timer <= 0) weather.type = null;
   }
 }
 
@@ -227,7 +231,7 @@ function drawWorld() {
     ctx.fillRect(x + 12, y + 20, 6, 20);
     ctx.fillStyle = "#007700"; // leaves
     ctx.beginPath();
-    ctx.arc(x + 15, y + 15, 15, 0, Math.PI * 2);
+    ctx.arc(x + 15, y + 15, 15, 0, Math.PI*2);
     ctx.fill();
   }
 
@@ -239,9 +243,31 @@ function drawWorld() {
 
 // Weather overlay
 function drawWeather() {
-  if (weather.heavy) {
-    ctx.fillStyle = "rgba(0,0,0,0.3)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (!weather.type) return;
+
+  // Overlay darkening
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Rain
+  if (weather.type === "rain") {
+    for (let i = 0; i < 100; i++) {
+      ctx.strokeStyle = "rgba(0,0,255,0.5)";
+      ctx.beginPath();
+      ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+      ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height + 10);
+      ctx.stroke();
+    }
+  }
+
+  // Snow
+  if (weather.type === "snow") {
+    for (let i = 0; i < 50; i++) {
+      ctx.fillStyle = "white";
+      ctx.beginPath();
+      ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, 2, 0, Math.PI*2);
+      ctx.fill();
+    }
   }
 }
 
@@ -267,5 +293,13 @@ function gameLoop() {
 
 gameLoop();
 
-// Test: heavy weather after 5s
-setTimeout(() => { weather.heavy = true; weather.timer = 600; }, 5000);
+// Example: trigger multiple weathers
+setTimeout(() => startWeather("rain", 600), 5000);
+setTimeout(() => startWeather("snow", 600), 15000);
+setTimeout(() => startWeather("storm", 600), 25000);
+
+// Weather helper
+function startWeather(type, duration = 600) {
+  weather.type = type;
+  weather.timer = duration;
+}
