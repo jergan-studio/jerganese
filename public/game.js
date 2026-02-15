@@ -38,18 +38,11 @@ const emotes = { wave: "👋", dance: "💃", sit: "🪑" };
 
 // Weather
 let weather = { type: null, timer: 0 };
-let weatherCooldown = 0; // scheduler countdown
+let weatherCooldown = 0;
 
 // Music
 const music = document.getElementById("bgMusic");
-music.volume = 0.5; // 50%
-music.loop = true;
-music.play().catch(()=>{}); // autoplay fallback
-
-// Optional: Weather sounds (add your mp3 files)
-const rainSound = new Audio("rain.mp3"); rainSound.loop = true;
-const stormSound = new Audio("storm.mp3"); stormSound.loop = true;
-const snowSound = new Audio("snow.mp3"); snowSound.loop = true;
+music.volume = 0.5;
 
 // Join Game
 function joinGame() {
@@ -80,13 +73,7 @@ canvas.addEventListener("touchend", () => touchActive = false);
 socket.on("currentPlayers", p => { players = p; myId = socket.id; });
 socket.on("newPlayer", d => players[d.id] = d.player);
 socket.on("playerMoved", d => players[d.id] = d.player);
-
-// Disconnect error overlay
-socket.on("playerDisconnected", id => {
-  if (id === myId) showError("You have disconnected!");
-  delete players[id];
-});
-
+socket.on("playerDisconnected", id => { if (id === myId) showError("You have disconnected!"); delete players[id]; });
 socket.on("playerCount", c => document.getElementById("playerCount").textContent = "Players Online: " + c);
 
 // Chat
@@ -118,217 +105,156 @@ document.getElementById("chatInput").addEventListener("keydown", e => {
 function showError(text) {
   const errorDiv = document.createElement("div");
   Object.assign(errorDiv.style, {
-    position: "fixed",
-    top: "0",
-    left: "0",
-    width: "100%",
-    height: "100%",
-    backgroundColor: "rgba(255,0,0,0.7)",
-    color: "white",
-    fontSize: "36px",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: "9999"
+    position:"fixed",top:"0",left:"0",width:"100%",height:"100%",
+    backgroundColor:"rgba(255,0,0,0.7)",color:"white",fontSize:"36px",
+    display:"flex",justifyContent:"center",alignItems:"center",zIndex:"9999"
   });
   errorDiv.innerText = text;
   document.body.appendChild(errorDiv);
-  setTimeout(() => errorDiv.remove(), 3000);
+  setTimeout(()=>errorDiv.remove(),3000);
 }
 
-// Camera update
-function updateCamera(player) {
-  camera.x += ((player.x - canvas.width / 2) - camera.x) * 0.1;
-  camera.y += ((player.y - canvas.height / 2) - camera.y) * 0.1;
-
-  if (weather.type === "storm") {
-    cameraShake.x = Math.random() * 6 - 3;
-    cameraShake.y = Math.random() * 6 - 3;
-  } else {
-    cameraShake.x = 0;
-    cameraShake.y = 0;
-  }
+// Camera
+function updateCamera(player){
+  camera.x += ((player.x - canvas.width/2)-camera.x)*0.1;
+  camera.y += ((player.y - canvas.height/2)-camera.y)*0.1;
+  cameraShake.x = (weather.type==="storm")?Math.random()*6-3:0;
+  cameraShake.y = (weather.type==="storm")?Math.random()*6-3:0;
 }
 
 // Weather scheduler
 function updateWeatherScheduler() {
-  if (weather.timer > 0) return;
-
-  if (weatherCooldown <= 0) {
-    const types = ["rain", "storm", "snow"];
-    const type = types[Math.floor(Math.random() * types.length)];
-    const duration = 600 + Math.floor(Math.random() * 600); // 10-20s
-
-    startWeather(type, duration);
-    weatherCooldown = 1200 + Math.floor(Math.random() * 600); // 20-30s until next weather
-  } else {
-    weatherCooldown--;
-  }
+  if(weather.timer>0)return;
+  if(weatherCooldown<=0){
+    const types=["rain","storm","snow"];
+    const type=types[Math.floor(Math.random()*types.length)];
+    const duration=600+Math.floor(Math.random()*600);
+    startWeather(type,duration);
+    weatherCooldown=1200+Math.floor(Math.random()*600);
+  } else weatherCooldown--;
 }
 
 // Start weather
-function startWeather(type, duration = 600) {
-  weather.type = type;
-  weather.timer = duration;
-
-  // Stop all sounds
-  rainSound.pause(); rainSound.currentTime = 0;
-  stormSound.pause(); stormSound.currentTime = 0;
-  snowSound.pause(); snowSound.currentTime = 0;
-
-  // Play corresponding sound
-  if (type === "rain") rainSound.play().catch(()=>{});
-  if (type === "storm") stormSound.play().catch(()=>{});
-  if (type === "snow") snowSound.play().catch(()=>{});
+function startWeather(type,duration=600){
+  weather.type=type;
+  weather.timer=duration;
 }
 
 // Update loop
-function update() {
-  if (!joined || !players[myId]) return;
-  let player = players[myId];
-  walking = false;
-  const speed = 4;
+function update(){
+  if(!joined||!players[myId])return;
+  let player=players[myId];
+  walking=false;
+  const speed=4;
 
-  // Keyboard
-  if (keys["w"]) { player.y -= speed; walking = true; }
-  if (keys["s"]) { player.y += speed; walking = true; }
-  if (keys["a"]) { player.x -= speed; walking = true; }
-  if (keys["d"]) { player.x += speed; walking = true; }
+  if(keys["w"]){player.y-=speed;walking=true;}
+  if(keys["s"]){player.y+=speed;walking=true;}
+  if(keys["a"]){player.x-=speed;walking=true;}
+  if(keys["d"]){player.x+=speed;walking=true;}
 
-  // Mobile
-  if (touchActive) {
-    let dx = touchMove.x - touchStart.x;
-    let dy = touchMove.y - touchStart.y;
-    player.x += dx * 0.05;
-    player.y += dy * 0.05;
-    walking = true;
+  if(touchActive){
+    let dx=touchMove.x-touchStart.x;
+    let dy=touchMove.y-touchStart.y;
+    player.x+=dx*0.05;
+    player.y+=dy*0.05;
+    walking=true;
   }
 
-  // Bounds
-  player.x = Math.max(0, Math.min(worldWidth, player.x));
-  player.y = Math.max(0, Math.min(worldHeight, player.y));
-
-  socket.emit("move", player);
-
-  if (walking) animFrame += 0.2; else animFrame = 0;
+  player.x=Math.max(0,Math.min(worldWidth,player.x));
+  player.y=Math.max(0,Math.min(worldHeight,player.y));
+  socket.emit("move",player);
+  animFrame = walking ? animFrame+0.2 : 0;
 
   updateCamera(player);
 
-  // Bubble timers
-  for (let id in players) if (players[id].bubbleTimer > 0) players[id].bubbleTimer--;
+  for(let id in players) if(players[id].bubbleTimer>0) players[id].bubbleTimer--;
 
-  // Weather timer
-  if (weather.timer > 0) {
-    weather.timer--;
-    if (weather.timer <= 0) weather.type = null;
-  }
-
-  // Dynamic scheduler
+  if(weather.timer>0){weather.timer--; if(weather.timer<=0) weather.type=null;}
   updateWeatherScheduler();
 }
 
 // Draw players
-function drawPlayers() {
-  for (let id in players) {
-    let p = players[id];
-    let sprite = idle;
-    if (id === myId && walking) sprite = Math.floor(animFrame) % 2 === 0 ? walk1 : walk2;
-
-    ctx.drawImage(sprite, Math.round(p.x), Math.round(p.y), 48, 48);
-    ctx.fillStyle = "black";
-    ctx.textAlign = "center";
-    ctx.fillText(p.name, p.x + 24, p.y - 5);
-
-    if (p.bubble && p.bubbleTimer > 0) drawBubble(p.bubble, p.x + 24, p.y);
+function drawPlayers(){
+  for(let id in players){
+    let p=players[id];
+    let sprite=idle;
+    if(id===myId&&walking) sprite=Math.floor(animFrame)%2===0?walk1:walk2;
+    ctx.drawImage(sprite,Math.round(p.x),Math.round(p.y),48,48);
+    ctx.fillStyle="black";
+    ctx.textAlign="center";
+    ctx.fillText(p.name,p.x+24,p.y-5);
+    if(p.bubble&&p.bubbleTimer>0) drawBubble(p.bubble,p.x+24,p.y);
   }
 }
 
-// Draw bubble
-function drawBubble(text, x, y) {
-  ctx.font = "14px Arial";
-  const padding = 6;
-  const width = ctx.measureText(text).width + padding * 2;
-
-  ctx.fillStyle = "white";
-  ctx.fillRect(x - width / 2, y - 40, width, 24);
-
-  ctx.fillStyle = "black";
-  ctx.textAlign = "center";
-  ctx.fillText(text, x, y - 22);
+function drawBubble(text,x,y){
+  ctx.font="14px Arial";
+  const padding=6;
+  const width=ctx.measureText(text).width+padding*2;
+  ctx.fillStyle="white";
+  ctx.fillRect(x-width/2,y-40,width,24);
+  ctx.fillStyle="black";
+  ctx.textAlign="center";
+  ctx.fillText(text,x,y-22);
 }
 
 // Draw world
-function drawWorld() {
-  ctx.fillStyle = "#2ecc40"; // Grass
-  ctx.fillRect(0, 0, worldWidth, worldHeight);
+function drawWorld(){
+  ctx.fillStyle="#2ecc40";
+  ctx.fillRect(0,0,worldWidth,worldHeight);
+  ctx.fillStyle="#8b4513";
+  ctx.fillRect(500,500,300,200);
+  ctx.fillRect(1200,400,250,250);
+  ctx.fillRect(700,1300,400,200);
 
-  // Buildings
-  ctx.fillStyle = "#8b4513";
-  ctx.fillRect(500, 500, 300, 200);
-  ctx.fillRect(1200, 400, 250, 250);
-  ctx.fillRect(700, 1300, 400, 200);
-
-  // Trees
-  function drawTree(x, y) {
-    ctx.fillStyle = "#8b4513"; // trunk
-    ctx.fillRect(x + 12, y + 20, 6, 20);
-    ctx.fillStyle = "#007700"; // leaves
-    ctx.beginPath();
-    ctx.arc(x + 15, y + 15, 15, 0, Math.PI*2);
-    ctx.fill();
+  function drawTree(x,y){
+    ctx.fillStyle="#8b4513"; ctx.fillRect(x+12,y+20,6,20);
+    ctx.fillStyle="#007700"; ctx.beginPath(); ctx.arc(x+15,y+15,15,0,Math.PI*2); ctx.fill();
   }
 
-  drawTree(300, 300);
-  drawTree(1600, 800);
-  drawTree(900, 1600);
-  drawTree(400, 1400);
+  drawTree(300,300);
+  drawTree(1600,800);
+  drawTree(900,1600);
+  drawTree(400,1400);
 }
 
-// Draw weather overlay
-function drawWeather() {
-  if (!weather.type) return;
-
-  // Overlay
-  ctx.fillStyle = "rgba(0,0,0,0.2)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Rain
-  if (weather.type === "rain") {
-    for (let i = 0; i < 100; i++) {
-      ctx.strokeStyle = "rgba(0,0,255,0.5)";
+// Draw weather
+function drawWeather(){
+  if(!weather.type) return;
+  ctx.fillStyle="rgba(0,0,0,0.2)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  if(weather.type==="rain"){
+    for(let i=0;i<100;i++){
+      ctx.strokeStyle="rgba(0,0,255,0.5)";
       ctx.beginPath();
-      ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
-      ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height + 10);
+      ctx.moveTo(Math.random()*canvas.width,Math.random()*canvas.height);
+      ctx.lineTo(Math.random()*canvas.width,Math.random()*canvas.height+10);
       ctx.stroke();
     }
   }
-
-  // Snow
-  if (weather.type === "snow") {
-    for (let i = 0; i < 50; i++) {
-      ctx.fillStyle = "white";
+  if(weather.type==="snow"){
+    for(let i=0;i<50;i++){
+      ctx.fillStyle="white";
       ctx.beginPath();
-      ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, 2, 0, Math.PI*2);
+      ctx.arc(Math.random()*canvas.width,Math.random()*canvas.height,2,0,Math.PI*2);
       ctx.fill();
     }
   }
 }
 
 // Draw loop
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.save();
-  ctx.translate(-camera.x - cameraShake.x, -camera.y - cameraShake.y);
-
+  ctx.translate(-camera.x-cameraShake.x,-camera.y-cameraShake.y);
   drawWorld();
   drawPlayers();
-
   ctx.restore();
   drawWeather();
 }
 
 // Game loop
-function gameLoop() {
+function gameLoop(){
   update();
   draw();
   requestAnimationFrame(gameLoop);
