@@ -23,19 +23,23 @@ let walking = false;
 // 🌍 World
 const worldWidth = 2000;
 const worldHeight = 2000;
-let camera = { x: 0, y: 0 };
 
-// 📱 Mobile
+// Camera
+let camera = { x: 0, y: 0 };
+let cameraShake = { x: 0, y: 0 };
+
+// Mobile
 let touchActive = false;
 let touchStart = { x: 0, y: 0 };
 let touchMove = { x: 0, y: 0 };
 
-// 😀 Emotes
+// Emotes
 const emotes = { wave: "👋", dance: "💃", sit: "🪑" };
 
-// 🌧 Weather
+// Weather
 let weather = { heavy: false, timer: 0 };
 
+// Join Game
 function joinGame() {
   const name = document.getElementById("nameInput").value.trim();
   if (name.length < 2) return alert("Name too short");
@@ -44,11 +48,11 @@ function joinGame() {
   joined = true;
 }
 
-// Keyboard
+// Keyboard controls
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
-// Mobile
+// Mobile controls
 canvas.addEventListener("touchstart", e => {
   touchActive = true;
   touchStart.x = e.touches[0].clientX;
@@ -73,7 +77,8 @@ socket.on("playerDisconnected", id => {
 
 socket.on("playerCount", c => document.getElementById("playerCount").textContent = "Players Online: " + c);
 
-socket.on("chat", (data) => {
+// Chat
+socket.on("chat", data => {
   for (let id in players) {
     if (players[id].name === data.name) {
       players[id].bubble = data.message;
@@ -96,6 +101,42 @@ document.getElementById("chatInput").addEventListener("keydown", e => {
     e.target.value = "";
   }
 });
+
+// Show error overlay
+function showError(text) {
+  const errorDiv = document.createElement("div");
+  Object.assign(errorDiv.style, {
+    position: "fixed",
+    top: "0",
+    left: "0",
+    width: "100%",
+    height: "100%",
+    backgroundColor: "rgba(255,0,0,0.7)",
+    color: "white",
+    fontSize: "36px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: "9999"
+  });
+  errorDiv.innerText = text;
+  document.body.appendChild(errorDiv);
+  setTimeout(() => errorDiv.remove(), 3000);
+}
+
+// Camera update
+function updateCamera(player) {
+  camera.x += ((player.x - canvas.width / 2) - camera.x) * 0.1;
+  camera.y += ((player.y - canvas.height / 2) - camera.y) * 0.1;
+
+  if (weather.heavy) {
+    cameraShake.x = Math.random() * 4 - 2;
+    cameraShake.y = Math.random() * 4 - 2;
+  } else {
+    cameraShake.x = 0;
+    cameraShake.y = 0;
+  }
+}
 
 // Update loop
 function update() {
@@ -127,9 +168,7 @@ function update() {
 
   if (walking) animFrame += 0.2; else animFrame = 0;
 
-  // Camera follow
-  camera.x += ((player.x - canvas.width / 2) - camera.x) * 0.1;
-  camera.y += ((player.y - canvas.height / 2) - camera.y) * 0.1;
+  updateCamera(player);
 
   // Bubble timers
   for (let id in players) if (players[id].bubbleTimer > 0) players[id].bubbleTimer--;
@@ -141,47 +180,61 @@ function update() {
   }
 }
 
-// Draw functions
-function drawWorld() {
-  ctx.fillStyle = "#2ecc40"; // Grass
-  ctx.fillRect(0, 0, worldWidth, worldHeight);
+// Draw players
+function drawPlayers() {
+  for (let id in players) {
+    let p = players[id];
+    let sprite = idle;
+    if (id === myId && walking) sprite = Math.floor(animFrame) % 2 === 0 ? walk1 : walk2;
 
-  // Simple building
-  ctx.fillStyle = "#8b4513";
-  ctx.fillRect(800, 800, 300, 200);
+    ctx.drawImage(sprite, Math.round(p.x), Math.round(p.y), 48, 48);
+    ctx.fillStyle = "black";
+    ctx.textAlign = "center";
+    ctx.fillText(p.name, p.x + 24, p.y - 5);
+
+    if (p.bubble && p.bubbleTimer > 0) drawBubble(p.bubble, p.x + 24, p.y);
+  }
 }
 
+// Draw bubble
 function drawBubble(text, x, y) {
   ctx.font = "14px Arial";
   const padding = 6;
   const width = ctx.measureText(text).width + padding * 2;
+
   ctx.fillStyle = "white";
   ctx.fillRect(x - width / 2, y - 40, width, 24);
+
   ctx.fillStyle = "black";
   ctx.textAlign = "center";
   ctx.fillText(text, x, y - 22);
 }
 
-// Error overlay
-function showError(text) {
-  const errorDiv = document.createElement("div");
-  Object.assign(errorDiv.style, {
-    position: "fixed",
-    top: "0",
-    left: "0",
-    width: "100%",
-    height: "100%",
-    backgroundColor: "rgba(255,0,0,0.7)",
-    color: "white",
-    fontSize: "36px",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: "9999"
-  });
-  errorDiv.innerText = text;
-  document.body.appendChild(errorDiv);
-  setTimeout(() => errorDiv.remove(), 3000);
+// Draw world
+function drawWorld() {
+  ctx.fillStyle = "#2ecc40"; // Grass
+  ctx.fillRect(0, 0, worldWidth, worldHeight);
+
+  // Buildings
+  ctx.fillStyle = "#8b4513";
+  ctx.fillRect(500, 500, 300, 200);
+  ctx.fillRect(1200, 400, 250, 250);
+  ctx.fillRect(700, 1300, 400, 200);
+
+  // Trees
+  function drawTree(x, y) {
+    ctx.fillStyle = "#8b4513"; // trunk
+    ctx.fillRect(x + 12, y + 20, 6, 20);
+    ctx.fillStyle = "#007700"; // leaves
+    ctx.beginPath();
+    ctx.arc(x + 15, y + 15, 15, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  drawTree(300, 300);
+  drawTree(1600, 800);
+  drawTree(900, 1600);
+  drawTree(400, 1400);
 }
 
 // Weather overlay
@@ -189,31 +242,23 @@ function drawWeather() {
   if (weather.heavy) {
     ctx.fillStyle = "rgba(0,0,0,0.3)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    camera.x += Math.random() * 4 - 2;
-    camera.y += Math.random() * 4 - 2;
   }
 }
 
-// Draw loop
+// Main draw
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.save();
-  ctx.translate(-camera.x, -camera.y);
+  ctx.translate(-camera.x - cameraShake.x, -camera.y - cameraShake.y);
+
   drawWorld();
-  for (let id in players) {
-    let p = players[id];
-    let sprite = idle;
-    if (id === myId && walking) sprite = Math.floor(animFrame) % 2 === 0 ? walk1 : walk2;
-    ctx.drawImage(sprite, Math.round(p.x), Math.round(p.y), 48, 48);
-    ctx.fillStyle = "black";
-    ctx.textAlign = "center";
-    ctx.fillText(p.name, p.x + 24, p.y - 5);
-    if (p.bubble && p.bubbleTimer > 0) drawBubble(p.bubble, p.x + 24, p.y);
-  }
+  drawPlayers();
+
   ctx.restore();
   drawWeather();
 }
 
+// Game loop
 function gameLoop() {
   update();
   draw();
@@ -222,5 +267,5 @@ function gameLoop() {
 
 gameLoop();
 
-// For testing: heavy weather after 5s
+// Test: heavy weather after 5s
 setTimeout(() => { weather.heavy = true; weather.timer = 600; }, 5000);
