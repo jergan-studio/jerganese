@@ -38,10 +38,18 @@ const emotes = { wave: "👋", dance: "💃", sit: "🪑" };
 
 // Weather
 let weather = { type: null, timer: 0 };
+let weatherCooldown = 0; // scheduler countdown
 
 // Music
 const music = document.getElementById("bgMusic");
 music.volume = 0.5; // 50%
+music.loop = true;
+music.play().catch(()=>{}); // autoplay fallback
+
+// Optional: Weather sounds (add your mp3 files)
+const rainSound = new Audio("rain.mp3"); rainSound.loop = true;
+const stormSound = new Audio("storm.mp3"); stormSound.loop = true;
+const snowSound = new Audio("snow.mp3"); snowSound.loop = true;
 
 // Join Game
 function joinGame() {
@@ -142,6 +150,38 @@ function updateCamera(player) {
   }
 }
 
+// Weather scheduler
+function updateWeatherScheduler() {
+  if (weather.timer > 0) return;
+
+  if (weatherCooldown <= 0) {
+    const types = ["rain", "storm", "snow"];
+    const type = types[Math.floor(Math.random() * types.length)];
+    const duration = 600 + Math.floor(Math.random() * 600); // 10-20s
+
+    startWeather(type, duration);
+    weatherCooldown = 1200 + Math.floor(Math.random() * 600); // 20-30s until next weather
+  } else {
+    weatherCooldown--;
+  }
+}
+
+// Start weather
+function startWeather(type, duration = 600) {
+  weather.type = type;
+  weather.timer = duration;
+
+  // Stop all sounds
+  rainSound.pause(); rainSound.currentTime = 0;
+  stormSound.pause(); stormSound.currentTime = 0;
+  snowSound.pause(); snowSound.currentTime = 0;
+
+  // Play corresponding sound
+  if (type === "rain") rainSound.play().catch(()=>{});
+  if (type === "storm") stormSound.play().catch(()=>{});
+  if (type === "snow") snowSound.play().catch(()=>{});
+}
+
 // Update loop
 function update() {
   if (!joined || !players[myId]) return;
@@ -182,6 +222,9 @@ function update() {
     weather.timer--;
     if (weather.timer <= 0) weather.type = null;
   }
+
+  // Dynamic scheduler
+  updateWeatherScheduler();
 }
 
 // Draw players
@@ -241,11 +284,11 @@ function drawWorld() {
   drawTree(400, 1400);
 }
 
-// Weather overlay
+// Draw weather overlay
 function drawWeather() {
   if (!weather.type) return;
 
-  // Overlay darkening
+  // Overlay
   ctx.fillStyle = "rgba(0,0,0,0.2)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -271,7 +314,7 @@ function drawWeather() {
   }
 }
 
-// Main draw
+// Draw loop
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.save();
@@ -292,28 +335,3 @@ function gameLoop() {
 }
 
 gameLoop();
-
-// Example: trigger multiple weathers
-setTimeout(() => startWeather("rain", 600), 5000);
-setTimeout(() => startWeather("snow", 600), 15000);
-setTimeout(() => startWeather("storm", 600), 25000);
-
-// Weather helper
-function startWeather(type, duration = 600) {
-  weather.type = type;
-  weather.timer = duration;
-}
-// Random weather scheduler
-function scheduleWeather() {
-  const types = ["rain", "storm", "snow"];
-  const type = types[Math.floor(Math.random() * types.length)];
-  const duration = 600 + Math.floor(Math.random() * 600); // 10–20 seconds
-  startWeather(type, duration);
-
-  // Schedule next weather in 20–30 seconds
-  const next = 1200 + Math.floor(Math.random() * 600); // frames ~20–30s
-  setTimeout(scheduleWeather, next * (1000 / 60)); // convert frames to ms
-}
-
-// Start the scheduler after 5 seconds
-setTimeout(scheduleWeather, 5000);
