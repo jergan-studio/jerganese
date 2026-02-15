@@ -9,20 +9,15 @@ let boomboxes = {};
 let myId = null;
 let joined = false;
 
-const idle = new Image();
-idle.src = "https://raw.githubusercontent.com/jergan-studio/jerganese/refs/heads/main/A.ico";
-const walk1 = new Image();
-walk1.src = "https://raw.githubusercontent.com/jergan-studio/jerganese/refs/heads/main/B.ico";
-const walk2 = new Image();
-walk2.src = "https://raw.githubusercontent.com/jergan-studio/jerganese/refs/heads/main/C.ico";
+// Sprites
+const idle = new Image(); idle.src = "https://raw.githubusercontent.com/jergan-studio/jerganese/refs/heads/main/A.ico";
+const walk1 = new Image(); walk1.src = "https://raw.githubusercontent.com/jergan-studio/jerganese/refs/heads/main/B.ico";
+const walk2 = new Image(); walk2.src = "https://raw.githubusercontent.com/jergan-studio/jerganese/refs/heads/main/C.ico";
 
+// Inputs
 let keys = {};
 let animFrame = 0;
 let walking = false;
-
-// World
-const worldWidth = 2000;
-const worldHeight = 2000;
 
 // Camera
 let camera = { x:0, y:0 };
@@ -40,21 +35,33 @@ const emotes = { wave:"👋", dance:"💃", sit:"🪑" };
 let weather = { type:null, timer:0 };
 let weatherCooldown = 0;
 
-// Music
+// Boombox music queue
+let boomboxSounds = {}; // {id: Audio}
+
+// Video overlay
+const videoOverlay = document.getElementById("videoOverlay");
+const boomboxVideo = document.getElementById("boomboxVideo");
+document.getElementById("closeVideo").onclick = ()=>{ videoOverlay.style.display="none"; boomboxVideo.src=""; };
+
+// World
+const worldWidth = 2000;
+const worldHeight = 2000;
+
+// Background music
 const music = document.getElementById("bgMusic");
 music.volume = 0.5;
 
-// Join Game
-function joinGame() {
+// Join game
+function joinGame(){
   const name = document.getElementById("nameInput").value.trim();
   if(name.length<2) return alert("Name too short");
   socket.emit("setName", name);
   document.getElementById("namePrompt").style.display = "none";
   joined = true;
-  socket.emit("requestBoomboxes"); // request existing boomboxes
+  socket.emit("requestBoomboxes"); // sync existing boomboxes
 }
 
-// Keyboard controls
+// Controls
 document.addEventListener("keydown", e=>keys[e.key]=true);
 document.addEventListener("keyup", e=>keys[e.key]=false);
 
@@ -104,7 +111,7 @@ function updateCamera(player){
   cameraShake.y=(weather.type==="storm")?Math.random()*6-3:0;
 }
 
-// Weather scheduler
+// Weather
 function updateWeatherScheduler(){
   if(weather.timer>0) return;
   if(weatherCooldown<=0){
@@ -115,28 +122,29 @@ function updateWeatherScheduler(){
     weatherCooldown=1200+Math.floor(Math.random()*600);
   } else weatherCooldown--;
 }
-
 function startWeather(type,duration=600){
   weather.type=type;
   weather.timer=duration;
 }
 
 // Boombox functions
-function placeBoombox(videoURL, emote){
+function placeBoombox(videoURL, emote, musicURL){
   if(!players[myId]) return;
   const player = players[myId];
-  socket.emit("placeBoombox", { x: player.x, y: player.y, videoURL, emote });
+  socket.emit("placeBoombox", { x:player.x, y:player.y, videoURL, musicURL, emote });
 }
-
 function boomboxEmote(id, emote){
   socket.emit("boomboxEmote", { id, emote });
 }
 
-// Handle boombox socket events
+// Boombox socket events
 socket.on("currentBoomboxes", data => boomboxes=data);
 socket.on("newBoombox", data => boomboxes[data.id]=data.boombox);
 socket.on("updateBoombox", data => boomboxes[data.id]=data.boombox);
-socket.on("removeBoombox", id=>delete boomboxes[id]);
+socket.on("removeBoombox", id=>{
+  if(boomboxSounds[id]) { boomboxSounds[id].pause(); delete boomboxSounds[id]; }
+  delete boomboxes[id];
+});
 
 // Update loop
 function update(){
@@ -145,10 +153,10 @@ function update(){
   walking=false;
   const speed=4;
 
-  if(keys["w"]){player.y-=speed;walking=true;}
-  if(keys["s"]){player.y+=speed;walking=true;}
-  if(keys["a"]){player.x-=speed;walking=true;}
-  if(keys["d"]){player.x+=speed;walking=true;}
+  if(keys["w"]){player.y-=speed; walking=true;}
+  if(keys["s"]){player.y+=speed; walking=true;}
+  if(keys["a"]){player.x-=speed; walking=true;}
+  if(keys["d"]){player.x+=speed; walking=true;}
 
   if(touchActive){
     let dx=touchMove.x-touchStart.x;
@@ -161,8 +169,8 @@ function update(){
   player.x=Math.max(0,Math.min(worldWidth,player.x));
   player.y=Math.max(0,Math.min(worldHeight,player.y));
   socket.emit("move",player);
-  animFrame=walking?animFrame+0.2:0;
 
+  animFrame=walking?animFrame+0.2:0;
   updateCamera(player);
 
   // Bubble timers
@@ -173,15 +181,9 @@ function update(){
     }
   }
 
+  // Weather
   if(weather.timer>0){ weather.timer--; if(weather.timer<=0) weather.type=null; }
   updateWeatherScheduler();
-
-  // Weather HUD
-  const hud=document.getElementById("weatherHUD");
-  if(weather.type==="rain") hud.textContent="Weather: 🌧️ Rain";
-  else if(weather.type==="storm") hud.textContent="Weather: ⛈️ Storm";
-  else if(weather.type==="snow") hud.textContent="Weather: ❄️ Snow";
-  else hud.textContent="Weather: ☀️ Clear";
 }
 
 // Draw functions
@@ -197,7 +199,6 @@ function drawPlayers(){
     if(p.bubble && p.bubbleTimer>0) drawBubble(p.bubble, p.x+24, p.y);
   }
 }
-
 function drawBubble(text,x,y){
   ctx.font="14px Arial";
   const padding=6;
@@ -208,13 +209,22 @@ function drawBubble(text,x,y){
   ctx.textAlign="center";
   ctx.fillText(text,x,y-22);
 }
-
-// Draw boomboxes
 function drawBoomboxes(){
   for(let id in boomboxes){
     const b = boomboxes[id];
     ctx.fillStyle="#555";
     ctx.fillRect(b.x, b.y, 40, 40);
+
+    // Play music globally
+    if(b.musicURL && !boomboxSounds[id]){
+      const audio = new Audio(b.musicURL);
+      audio.loop = true;
+      audio.volume = 0.3;
+      audio.play().catch(()=>{});
+      boomboxSounds[id] = audio;
+    }
+
+    // Draw video play triangle if video exists
     if(b.videoURL){
       ctx.fillStyle="white";
       ctx.beginPath();
@@ -223,6 +233,8 @@ function drawBoomboxes(){
       ctx.lineTo(b.x+28,b.y+20);
       ctx.fill();
     }
+
+    // Draw emote
     if(b.emote){
       ctx.font="20px Arial";
       ctx.textAlign="center";
@@ -232,7 +244,6 @@ function drawBoomboxes(){
   }
 }
 
-// Draw world
 function drawWorld(){
   ctx.fillStyle="#2ecc40";
   ctx.fillRect(0,0,worldWidth,worldHeight);
@@ -253,7 +264,6 @@ function drawWorld(){
   drawTree(400,1400);
 }
 
-// Weather
 function drawWeather(){
   if(!weather.type) return;
   ctx.fillStyle="rgba(0,0,0,0.2)";
@@ -277,7 +287,6 @@ function drawWeather(){
   }
 }
 
-// Draw loop
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.save();
@@ -289,7 +298,6 @@ function draw(){
   drawWeather();
 }
 
-// Game loop
 function gameLoop(){
   update();
   draw();
@@ -298,11 +306,34 @@ function gameLoop(){
 
 gameLoop();
 
-// Place boombox with "b" key
+// Place boombox B key
 document.addEventListener("keydown", e=>{
   if(e.key==="b" && joined){
     const videoURL = prompt("Enter video URL (optional):");
+    const musicURL = prompt("Enter music URL (optional, raw GitHub or local):");
     const emote = prompt("Enter emote (optional):");
-    placeBoombox(videoURL, emote);
+    placeBoombox(videoURL, emote, musicURL);
+  }
+});
+
+// Click boombox for video overlay
+canvas.addEventListener("click", e=>{
+  if(!joined) return;
+  const mouseX = e.clientX + camera.x + cameraShake.x;
+  const mouseY = e.clientY + camera.y + cameraShake.y;
+  for(let id in boomboxes){
+    const b = boomboxes[id];
+    if(mouseX >= b.x && mouseX <= b.x+40 && mouseY >= b.y && mouseY <= b.y+40){
+      if(b.videoURL){
+        videoOverlay.style.display="flex";
+        let url = b.videoURL;
+        if(url.includes("youtube.com/watch")){
+          const videoId = url.split("v=")[1].split("&")[0];
+          url = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+        }
+        boomboxVideo.src = url;
+      }
+      break;
+    }
   }
 });
