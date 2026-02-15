@@ -9,57 +9,58 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 let players = {};
+let boomboxes = {};
 
 io.on("connection", socket => {
   console.log(`Player connected: ${socket.id}`);
 
-  // Add player
-  players[socket.id] = {
-    x: Math.random() * 1800 + 100,
-    y: Math.random() * 1800 + 100,
-    name: "Player",
-    bubble: "",
-    bubbleTimer: 0
-  };
-
-  // Send current players to new player
+  players[socket.id] = { x: Math.random()*1800+100, y: Math.random()*1800+100, name:"Player", bubble:"", bubbleTimer:0 };
+  
   socket.emit("currentPlayers", players);
-
-  // Notify others
   socket.broadcast.emit("newPlayer", { id: socket.id, player: players[socket.id] });
 
-  // Handle name change
-  socket.on("setName", name => {
-    if (players[socket.id]) players[socket.id].name = name;
-  });
+  socket.on("setName", name => { if(players[socket.id]) players[socket.id].name=name; });
 
-  // Handle movement
-  socket.on("move", playerData => {
-    if (players[socket.id]) {
-      players[socket.id].x = playerData.x;
-      players[socket.id].y = playerData.y;
-      // Broadcast movement to others
+  socket.on("move", data => { 
+    if(players[socket.id]) { 
+      players[socket.id].x=data.x; 
+      players[socket.id].y=data.y; 
       socket.broadcast.emit("playerMoved", { id: socket.id, player: players[socket.id] });
-    }
+    } 
   });
 
-  // Handle chat
+  // Chat
   socket.on("chat", msg => {
-    if (players[socket.id]) {
+    if(players[socket.id]){
       const name = players[socket.id].name;
-      io.emit("chat", { name, message: msg });
+      io.emit("chat",{ name, message: msg });
     }
   });
 
-  // Disconnect
+  // Boombox
+  socket.on("placeBoombox", data => {
+    const id = Date.now()+"_"+Math.floor(Math.random()*1000);
+    boomboxes[id] = { x:data.x, y:data.y, ownerId:socket.id, videoURL:data.videoURL||"", active:true, emote:data.emote||"" };
+    io.emit("newBoombox",{ id, boombox: boomboxes[id] });
+  });
+
+  socket.on("boomboxEmote", data => {
+    if(boomboxes[data.id]){
+      boomboxes[data.id].emote=data.emote;
+      io.emit("updateBoombox",{ id:data.id, boombox:boomboxes[data.id] });
+    }
+  });
+
+  socket.on("removeBoombox", id => { delete boomboxes[id]; io.emit("removeBoombox",id); });
+
+  socket.on("requestBoomboxes", () => { socket.emit("currentBoomboxes", boomboxes); });
+
   socket.on("disconnect", () => {
-    console.log(`Player disconnected: ${socket.id}`);
     delete players[socket.id];
     io.emit("playerDisconnected", socket.id);
     io.emit("playerCount", Object.keys(players).length);
   });
 
-  // Update player count
   io.emit("playerCount", Object.keys(players).length);
 });
 
