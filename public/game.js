@@ -261,3 +261,10 @@ function gameLoop(){
 }
 
 gameLoop();
+// Update weather HUD
+const hud = document.getElementById("weatherHUD");
+if(weather.type === "rain") hud.textContent = "Weather: 🌧️ Rain";
+else if(weather.type === "storm") hud.textContent = "Weather: ⛈️ Storm";
+else if(weather.type === "snow") hud.textContent = "Weather: ❄️ Snow";
+else hud.textContent = "Weather: ☀️ Clear";
+
