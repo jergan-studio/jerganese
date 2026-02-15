@@ -13,7 +13,6 @@ let boomboxes = {};
 
 io.on("connection", socket => {
   console.log(`Player connected: ${socket.id}`);
-
   players[socket.id] = { x: Math.random()*1800+100, y: Math.random()*1800+100, name:"Player", bubble:"", bubbleTimer:0 };
   
   socket.emit("currentPlayers", players);
@@ -40,7 +39,11 @@ io.on("connection", socket => {
   // Boombox
   socket.on("placeBoombox", data => {
     const id = Date.now()+"_"+Math.floor(Math.random()*1000);
-    boomboxes[id] = { x:data.x, y:data.y, ownerId:socket.id, videoURL:data.videoURL||"", active:true, emote:data.emote||"" };
+    boomboxes[id] = {
+      x:data.x, y:data.y, ownerId:socket.id,
+      videoURL:data.videoURL||"", musicURL:data.musicURL||"",
+      active:true, emote:data.emote||""
+    };
     io.emit("newBoombox",{ id, boombox: boomboxes[id] });
   });
 
@@ -52,7 +55,6 @@ io.on("connection", socket => {
   });
 
   socket.on("removeBoombox", id => { delete boomboxes[id]; io.emit("removeBoombox",id); });
-
   socket.on("requestBoomboxes", () => { socket.emit("currentBoomboxes", boomboxes); });
 
   socket.on("disconnect", () => {
