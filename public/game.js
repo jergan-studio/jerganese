@@ -1,7 +1,6 @@
 const socket = io();
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
@@ -20,24 +19,24 @@ let keys = {};
 let animFrame = 0;
 let walking = false;
 
-// 🌍 World
+// World
 const worldWidth = 2000;
 const worldHeight = 2000;
 
 // Camera
-let camera = { x: 0, y: 0 };
-let cameraShake = { x: 0, y: 0 };
+let camera = { x:0, y:0 };
+let cameraShake = { x:0, y:0 };
 
 // Mobile
 let touchActive = false;
-let touchStart = { x: 0, y: 0 };
-let touchMove = { x: 0, y: 0 };
+let touchStart = { x:0, y:0 };
+let touchMove = { x:0, y:0 };
 
 // Emotes
-const emotes = { wave: "👋", dance: "💃", sit: "🪑" };
+const emotes = { wave:"👋", dance:"💃", sit:"🪑" };
 
 // Weather
-let weather = { type: null, timer: 0 };
+let weather = { type:null, timer:0 };
 let weatherCooldown = 0;
 
 // Music
@@ -47,84 +46,66 @@ music.volume = 0.5;
 // Join Game
 function joinGame() {
   const name = document.getElementById("nameInput").value.trim();
-  if (name.length < 2) return alert("Name too short");
+  if(name.length<2) return alert("Name too short");
   socket.emit("setName", name);
   document.getElementById("namePrompt").style.display = "none";
   joined = true;
 }
 
 // Keyboard controls
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
+document.addEventListener("keydown", e=>keys[e.key]=true);
+document.addEventListener("keyup", e=>keys[e.key]=false);
 
 // Mobile controls
-canvas.addEventListener("touchstart", e => {
-  touchActive = true;
-  touchStart.x = e.touches[0].clientX;
-  touchStart.y = e.touches[0].clientY;
-});
-canvas.addEventListener("touchmove", e => {
-  touchMove.x = e.touches[0].clientX;
-  touchMove.y = e.touches[0].clientY;
-});
-canvas.addEventListener("touchend", () => touchActive = false);
+canvas.addEventListener("touchstart", e=>{ touchActive=true; touchStart.x=e.touches[0].clientX; touchStart.y=e.touches[0].clientY; });
+canvas.addEventListener("touchmove", e=>{ touchMove.x=e.touches[0].clientX; touchMove.y=e.touches[0].clientY; });
+canvas.addEventListener("touchend", ()=>touchActive=false);
 
 // Socket events
-socket.on("currentPlayers", p => { players = p; myId = socket.id; });
-socket.on("newPlayer", d => players[d.id] = d.player);
-socket.on("playerMoved", d => players[d.id] = d.player);
-socket.on("playerDisconnected", id => { if (id === myId) showError("You have disconnected!"); delete players[id]; });
-socket.on("playerCount", c => document.getElementById("playerCount").textContent = "Players Online: " + c);
+socket.on("currentPlayers", p=>{ players=p; myId=socket.id; });
+socket.on("newPlayer", d=>{ players[d.id]=d.player; });
+socket.on("playerMoved", d=>{ players[d.id]=d.player; });
+socket.on("playerDisconnected", id=>{ delete players[id]; });
+socket.on("playerCount", c=>document.getElementById("playerCount").textContent="Players Online: "+c);
 
 // Chat
-socket.on("chat", data => {
-  for (let id in players) {
-    if (players[id].name === data.name) {
-      players[id].bubble = data.message;
-      players[id].bubbleTimer = 180;
+socket.on("chat", data=>{
+  for(let id in players){
+    if(players[id].name===data.name){
+      players[id].bubble=data.message;
+      players[id].bubbleTimer=180;
     }
   }
-  const msg = document.createElement("div");
-  msg.textContent = `${data.name}: ${data.message}`;
+  const msg=document.createElement("div");
+  msg.textContent=`${data.name}: ${data.message}`;
   document.getElementById("messages").appendChild(msg);
+  const messagesDiv=document.getElementById("messages");
+  messagesDiv.scrollTop=messagesDiv.scrollHeight;
 });
 
-// Chat input with emotes
-document.getElementById("chatInput").addEventListener("keydown", e => {
-  if (e.key === "Enter" && joined) {
-    let text = e.target.value;
-    if (text.startsWith("/")) {
-      let cmd = text.substring(1);
-      if (emotes[cmd]) socket.emit("chat", emotes[cmd]);
+// Chat input
+document.getElementById("chatInput").addEventListener("keydown", e=>{
+  if(e.key==="Enter" && joined){
+    let text=e.target.value;
+    if(text.startsWith("/")){
+      let cmd=text.substring(1);
+      if(emotes[cmd]) socket.emit("chat", emotes[cmd]);
     } else socket.emit("chat", text);
-    e.target.value = "";
+    e.target.value="";
   }
 });
-
-// Show error overlay
-function showError(text) {
-  const errorDiv = document.createElement("div");
-  Object.assign(errorDiv.style, {
-    position:"fixed",top:"0",left:"0",width:"100%",height:"100%",
-    backgroundColor:"rgba(255,0,0,0.7)",color:"white",fontSize:"36px",
-    display:"flex",justifyContent:"center",alignItems:"center",zIndex:"9999"
-  });
-  errorDiv.innerText = text;
-  document.body.appendChild(errorDiv);
-  setTimeout(()=>errorDiv.remove(),3000);
-}
 
 // Camera
 function updateCamera(player){
-  camera.x += ((player.x - canvas.width/2)-camera.x)*0.1;
-  camera.y += ((player.y - canvas.height/2)-camera.y)*0.1;
-  cameraShake.x = (weather.type==="storm")?Math.random()*6-3:0;
-  cameraShake.y = (weather.type==="storm")?Math.random()*6-3:0;
+  camera.x+=((player.x-canvas.width/2)-camera.x)*0.1;
+  camera.y+=((player.y-canvas.height/2)-camera.y)*0.1;
+  cameraShake.x=(weather.type==="storm")?Math.random()*6-3:0;
+  cameraShake.y=(weather.type==="storm")?Math.random()*6-3:0;
 }
 
 // Weather scheduler
-function updateWeatherScheduler() {
-  if(weather.timer>0)return;
+function updateWeatherScheduler(){
+  if(weather.timer>0) return;
   if(weatherCooldown<=0){
     const types=["rain","storm","snow"];
     const type=types[Math.floor(Math.random()*types.length)];
@@ -134,7 +115,6 @@ function updateWeatherScheduler() {
   } else weatherCooldown--;
 }
 
-// Start weather
 function startWeather(type,duration=600){
   weather.type=type;
   weather.timer=duration;
@@ -142,7 +122,7 @@ function startWeather(type,duration=600){
 
 // Update loop
 function update(){
-  if(!joined||!players[myId])return;
+  if(!joined||!players[myId]) return;
   let player=players[myId];
   walking=false;
   const speed=4;
@@ -163,14 +143,27 @@ function update(){
   player.x=Math.max(0,Math.min(worldWidth,player.x));
   player.y=Math.max(0,Math.min(worldHeight,player.y));
   socket.emit("move",player);
-  animFrame = walking ? animFrame+0.2 : 0;
+  animFrame=walking?animFrame+0.2:0;
 
   updateCamera(player);
 
-  for(let id in players) if(players[id].bubbleTimer>0) players[id].bubbleTimer--;
+  // Bubble timers
+  for(let id in players){
+    if(players[id].bubbleTimer>0){
+      players[id].bubbleTimer--;
+      if(players[id].bubbleTimer===0) players[id].bubble="";
+    }
+  }
 
-  if(weather.timer>0){weather.timer--; if(weather.timer<=0) weather.type=null;}
+  if(weather.timer>0){ weather.timer--; if(weather.timer<=0) weather.type=null; }
   updateWeatherScheduler();
+
+  // Update HUD
+  const hud=document.getElementById("weatherHUD");
+  if(weather.type==="rain") hud.textContent="Weather: 🌧️ Rain";
+  else if(weather.type==="storm") hud.textContent="Weather: ⛈️ Storm";
+  else if(weather.type==="snow") hud.textContent="Weather: ❄️ Snow";
+  else hud.textContent="Weather: ☀️ Clear";
 }
 
 // Draw players
@@ -202,6 +195,8 @@ function drawBubble(text,x,y){
 function drawWorld(){
   ctx.fillStyle="#2ecc40";
   ctx.fillRect(0,0,worldWidth,worldHeight);
+
+  // Buildings
   ctx.fillStyle="#8b4513";
   ctx.fillRect(500,500,300,200);
   ctx.fillRect(1200,400,250,250);
@@ -211,7 +206,6 @@ function drawWorld(){
     ctx.fillStyle="#8b4513"; ctx.fillRect(x+12,y+20,6,20);
     ctx.fillStyle="#007700"; ctx.beginPath(); ctx.arc(x+15,y+15,15,0,Math.PI*2); ctx.fill();
   }
-
   drawTree(300,300);
   drawTree(1600,800);
   drawTree(900,1600);
@@ -261,10 +255,3 @@ function gameLoop(){
 }
 
 gameLoop();
-// Update weather HUD
-const hud = document.getElementById("weatherHUD");
-if(weather.type === "rain") hud.textContent = "Weather: 🌧️ Rain";
-else if(weather.type === "storm") hud.textContent = "Weather: ⛈️ Storm";
-else if(weather.type === "snow") hud.textContent = "Weather: ❄️ Snow";
-else hud.textContent = "Weather: ☀️ Clear";
-
