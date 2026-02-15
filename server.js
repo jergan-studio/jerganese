@@ -1,57 +1,67 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, "public")));
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
+app.use(express.static("public"));
 
 let players = {};
 
-io.on("connection", (socket) => {
+io.on("connection", socket => {
+  console.log(`Player connected: ${socket.id}`);
 
-  socket.on("setName", (name) => {
-    players[socket.id] = {
-      x: 300,
-      y: 300,
-      name: name,
-      bubble: "",
-      bubbleTimer: 0
-    };
+  // Add player
+  players[socket.id] = {
+    x: Math.random() * 1800 + 100,
+    y: Math.random() * 1800 + 100,
+    name: "Player",
+    bubble: "",
+    bubbleTimer: 0
+  };
 
-    socket.emit("currentPlayers", players);
-    socket.broadcast.emit("newPlayer", { id: socket.id, player: players[socket.id] });
-    io.emit("playerCount", Object.keys(players).length);
+  // Send current players to new player
+  socket.emit("currentPlayers", players);
+
+  // Notify others
+  socket.broadcast.emit("newPlayer", { id: socket.id, player: players[socket.id] });
+
+  // Handle name change
+  socket.on("setName", name => {
+    if (players[socket.id]) players[socket.id].name = name;
   });
 
-  socket.on("move", (data) => {
-    if (!players[socket.id]) return;
-    players[socket.id].x = data.x;
-    players[socket.id].y = data.y;
-    io.emit("playerMoved", { id: socket.id, player: players[socket.id] });
+  // Handle movement
+  socket.on("move", playerData => {
+    if (players[socket.id]) {
+      players[socket.id].x = playerData.x;
+      players[socket.id].y = playerData.y;
+      // Broadcast movement to others
+      socket.broadcast.emit("playerMoved", { id: socket.id, player: players[socket.id] });
+    }
   });
 
-  socket.on("chat", (msg) => {
-    if (!players[socket.id]) return;
-    players[socket.id].bubble = msg;
-    players[socket.id].bubbleTimer = 180;
-    io.emit("chat", { name: players[socket.id].name, message: msg });
+  // Handle chat
+  socket.on("chat", msg => {
+    if (players[socket.id]) {
+      const name = players[socket.id].name;
+      io.emit("chat", { name, message: msg });
+    }
   });
 
+  // Disconnect
   socket.on("disconnect", () => {
+    console.log(`Player disconnected: ${socket.id}`);
     delete players[socket.id];
     io.emit("playerDisconnected", socket.id);
     io.emit("playerCount", Object.keys(players).length);
   });
 
+  // Update player count
+  io.emit("playerCount", Object.keys(players).length);
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Server running on port", PORT));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
